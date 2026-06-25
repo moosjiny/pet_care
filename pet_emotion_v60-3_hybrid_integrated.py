@@ -40,8 +40,15 @@ class PetUltimateSystem:
         print(f">> [V60-3] ONNX Runtime providers: {self.providers}")
         
         # 모델 로드
-        self.yolo_seg = YOLO(os.path.abspath(YOLO_SEG_ONNX), task='segment', device=self.device)
-        self.yolo_pose = YOLO(os.path.abspath(YOLO_POSE_ONNX), task='pose', device=self.device)
+        self.yolo_seg = YOLO(os.path.abspath(YOLO_SEG_ONNX), task='segment')
+        self.yolo_pose = YOLO(os.path.abspath(YOLO_POSE_ONNX), task='pose')
+        if self.device == 'cuda':
+            try:
+                self.yolo_seg = self.yolo_seg.to(self.device)
+                self.yolo_pose = self.yolo_pose.to(self.device)
+            except Exception:
+                # 일부 ONNX 모델/환경에서는 이동이 지원되지 않을 수 있음
+                pass
         
         self.vit_session = ort.InferenceSession(os.path.abspath(V32_ONNX_PATH), providers=self.providers)
         self.dog_emo = ort.InferenceSession(os.path.abspath(DOG_ONNX_PATH), providers=self.providers)
