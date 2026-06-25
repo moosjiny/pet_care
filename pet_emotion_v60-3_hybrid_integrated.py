@@ -39,6 +39,19 @@ class PetUltimateSystem:
         print(f">> [V60-3] 중복 ID 방지 통합 시스템 가동 (Device: {self.device})")
         print(f">> [V60-3] ONNX Runtime providers: {self.providers}")
         
+        def create_session(path):
+            if self.device == 'cuda':
+                try:
+                    return ort.InferenceSession(path, providers=['CUDAExecutionProvider'])
+                except Exception as e:
+                    print(f">> [V60-3] CUDA 세션 로드 실패, CPU로 폴백합니다: {e}")
+                    self.device = 'cpu'
+                    self.providers = ['CPUExecutionProvider']
+            try:
+                return ort.InferenceSession(path, providers=['CPUExecutionProvider'])
+            except Exception as e:
+                raise RuntimeError(f"ONNX 세션 로드 실패: {path} -> {e}")
+
         # 모델 로드
         self.yolo_seg = YOLO(os.path.abspath(YOLO_SEG_ONNX), task='segment')
         self.yolo_pose = YOLO(os.path.abspath(YOLO_POSE_ONNX), task='pose')
@@ -47,14 +60,14 @@ class PetUltimateSystem:
                 self.yolo_seg = self.yolo_seg.to(self.device)
                 self.yolo_pose = self.yolo_pose.to(self.device)
             except Exception:
-                # 일부 ONNX 모델/환경에서는 이동이 지원되지 않을 수 있음
                 pass
         
-        self.vit_session = ort.InferenceSession(os.path.abspath(V32_ONNX_PATH), providers=self.providers)
-        self.dog_emo = ort.InferenceSession(os.path.abspath(DOG_ONNX_PATH), providers=self.providers)
-        self.cat_emo = ort.InferenceSession(os.path.abspath(CAT_ONNX_PATH), providers=self.providers)
+        self.vit_session = create_session(os.path.abspath(V32_ONNX_PATH))
+        self.dog_emo = create_session(os.path.abspath(DOG_ONNX_PATH))
+        self.cat_emo = create_session(os.path.abspath(CAT_ONNX_PATH))
         
         self.emotion_queues = defaultdict(lambda: deque(maxlen=30))
+        self.last_analysis = []
         self.clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
         self.target_brightness = 115
 
@@ -147,6 +160,7 @@ class PetUltimateSystem:
             for o in obj_list:
                 hud_text = f"{o['idx']}. {PET_NAMES[o['cid']]} ID:{o['tid']} [{o['emo']}] 매칭:{o['match']:.1f}%"
                 vis = self.draw_text_pil(vis, hud_text, (w-hud_w+20, 60 + (o['idx']-1) * 55), size=17)
+        self.last_analysis = obj_list
         return vis
 
     def run(self, source):

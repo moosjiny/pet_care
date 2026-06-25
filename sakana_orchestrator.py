@@ -8,6 +8,13 @@ class SakanaPetOrchestrator:
         self.orchestrator_model = "qwen2.5-coder:7b"
         self.critic_model = "deepseek-r1:8b"
 
+    def _json_default(self, obj):
+        if hasattr(obj, "item"):
+            return obj.item()
+        if isinstance(obj, bytes):
+            return obj.decode("utf-8", errors="ignore")
+        return str(obj)
+
     def _query_ollama(self, model, prompt):
         """로컬 Ollama 모델에 질의하는 헬퍼 함수"""
         payload = {
@@ -31,7 +38,7 @@ class SakanaPetOrchestrator:
         아래의 비전 센싱 데이터를 바탕으로 동물의 현재 감정 상태를 진단하고 수행할 행동 가이드를 작성하세요.
         최종 답변은 반드시 한국어로 작성해야 합니다.
 
-        [비전 데이터]: {json.dumps(vision_data)}
+        [비전 데이터]: {json.dumps(vision_data, default=self._json_default, ensure_ascii=False)}
         """
         initial_decision = self._query_ollama(self.orchestrator_model, orchestrator_prompt)
         print(f"\n[2. Orchestrator (Qwen)의 초안 판정]:\n{initial_decision}")
@@ -42,7 +49,7 @@ class SakanaPetOrchestrator:
         오케스트레이터가 내린 판정에 논리적 모순이 있거나, 비전 데이터의 한계(예: 일시적 오탐 가능성)를 간과한 부분이 없는지 '비판적으로' 검토하십시오.
         생각(<think>) 과정은 자유롭게 하되, 최종 조언은 반드시 한국어로 작성하세요.
 
-        [원시 비전 데이터]: {json.dumps(vision_data)}
+        [원시 비전 데이터]: {json.dumps(vision_data, default=self._json_default, ensure_ascii=False)}
         [오케스트레이터의 판정]: {initial_decision}
         """
         critic_feedback = self._query_ollama(self.critic_model, critic_prompt)
