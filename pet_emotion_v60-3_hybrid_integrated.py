@@ -37,10 +37,11 @@ class PetUltimateSystem:
         self.device = "cuda" if 'CUDAExecutionProvider' in available_providers else "cpu"
         
         print(f">> [V60-3] 중복 ID 방지 통합 시스템 가동 (Device: {self.device})")
+        print(f">> [V60-3] ONNX Runtime providers: {self.providers}")
         
         # 모델 로드
-        self.yolo_seg = YOLO(os.path.abspath(YOLO_SEG_ONNX), task='segment')
-        self.yolo_pose = YOLO(os.path.abspath(YOLO_POSE_ONNX), task='pose')
+        self.yolo_seg = YOLO(os.path.abspath(YOLO_SEG_ONNX), task='segment', device=self.device)
+        self.yolo_pose = YOLO(os.path.abspath(YOLO_POSE_ONNX), task='pose', device=self.device)
         
         self.vit_session = ort.InferenceSession(os.path.abspath(V32_ONNX_PATH), providers=self.providers)
         self.dog_emo = ort.InferenceSession(os.path.abspath(DOG_ONNX_PATH), providers=self.providers)
